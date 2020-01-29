@@ -72,6 +72,19 @@ struct io_uring {
 /*
  * Library interface
  */
+
+/* Checks that io_uring is modern enough for a particular case.
+ * Check it by verifying that:
+ *
+ *  - io_uring is available
+ *  - the io_uring_probe call is available, so opcodes can be checked
+ *  - all opcodes the application wants to use are supported
+ *  - the features requested are present.
+ *
+ *  return 0 if io_uring is not usable, 1 otherwise.
+ */
+extern int io_uring_check_minimum_support(const int* operations, int noperations, int features);
+
 extern int io_uring_queue_init_params(unsigned entries, struct io_uring *ring,
 	struct io_uring_params *p);
 extern int io_uring_queue_init(unsigned entries, struct io_uring *ring,

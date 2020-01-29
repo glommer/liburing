@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "liburing/compat.h"
 #include "liburing/io_uring.h"
@@ -166,4 +167,46 @@ void io_uring_queue_exit(struct io_uring *ring)
 	munmap(sq->sqes, *sq->kring_entries * sizeof(struct io_uring_sqe));
 	io_uring_unmap_rings(sq, cq);
 	close(ring->ring_fd);
+}
+
+int io_uring_check_minimum_support(const int* operations, int noperations, int features)
+{
+	struct io_uring_params p;
+	struct io_uring_probe* probe;
+    struct io_uring ring;
+    int r;
+    int i;
+    int ret = 0;
+
+	memset(&p, 0, sizeof(p));
+	r = io_uring_queue_init_params(2, &ring, &p);
+    if (r < 0) {
+        return ret;
+    }
+
+    if ((p.features & features) != features) {
+        goto exit;
+    }
+
+
+    size_t len = sizeof(*probe) + 256 * sizeof(struct io_uring_probe_op);
+    probe = malloc(len);
+    r = io_uring_register_probe(&ring, probe, 0);
+    if (r < 0) {
+        goto exit;
+    }
+
+    for (i = 0; i < noperations; i++) {
+        int op = operations[i];
+        if (probe->last_op < op) {
+            goto exit;
+        }
+        if (!(probe->ops[op].flags & IO_URING_OP_SUPPORTED)) {
+            goto exit;
+        }
+    }
+    ret = 1;
+exit:
+    io_uring_queue_exit(&ring);
+    return ret;
 }
